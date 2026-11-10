@@ -6,26 +6,55 @@ from dotenv import load_dotenv
 import random
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import cardList, cardDB
+import cardName, cardMeaning
 
 
-intents = discord.Intents.default()  # 기본 intents 사용, 필요시 수정 가능
-intents.message_content = True  # 메시지 내용을 읽으려면 True로 설정
+# intents는 봇이 어떤 이벤트를 수신할지 결정하는 설정입니다.
+intents = discord.Intents.default()
+intents.message_content = True
 
+# bot은 discord.py 라이브러리에서 제공하는 Bot 클래스의 인스턴스입니다.
 bot = commands.Bot(command_prefix='!', intents=intents)
-# bot = commands.Bot(command_prefix='', intents=intents)
 # command_prefix=''는 호출 접두사 설정
 # intents=intents를 통해 봇이 설정된 권한을 사용하도록 설정
 
 # commands.Bot은 리스트 형태로 전달된 command_prefix에서 
 # 리스트의 각 원소를 별도의 접두사로 처리하도록 설계되어 있습니다.
 
-tarot = cardList.tarot
-tarotmeaning = cardDB.tarotcard
-symbolon = cardList.symbolon
-symbolonmeaning = cardDB.symboloncard
+
+tarot_name = cardName.tarot_name
+tarot_meaning = cardMeaning.tarot_meaning
+symbolon_name = cardName.symbolon_name
+symbolon_meaning = cardMeaning.symbolon_meaning
 
 KST = ZoneInfo("Asia/Seoul")
+
+
+# 카드 의미 보기 버튼을 위한 클래스
+class MeaningView(discord.ui.View):
+    def __init__(self, card_id, cards, meanings):
+        super().__init__()
+        self.card_id = card_id
+        self.cards = cards
+        self.meanings = meanings
+
+    @discord.ui.button(label="카드 의미 보기", style=discord.ButtonStyle.primary)
+    async def show_tarot_meaning(self, interaction: discord.Interaction, button: discord.ui.Button):
+        card_name = self.cards.get(self.card_id)
+        meaning = self.meanings.get(self.card_id)
+
+        if meaning is None:
+            await interaction.response.send_message(
+                f"앗! 아직은 '{card_name}' 카드의 뜻이 없나 봐요.", 
+                ephemeral=True
+                )
+        else:
+            await interaction.response.send_message(
+                f"{self.card_id} {card_name} 카드의 의미는: \n{meaning}", 
+                ephemeral=True
+                )
+
+
 
 @bot.event
 async def on_ready():
@@ -34,63 +63,72 @@ async def on_ready():
 
 @bot.command()
 async def 타로뽑기(ctx):
-    card = random.choice(list(tarot.values()))
+    card_id = random.choice(list(tarot_name))
+    card_name = tarot_name[card_id]
+
     now = datetime.now(KST).strftime("%m/%d %H:%M:%S")
     await asyncio.sleep(3)
-    await ctx.send(f'{now}에 당신이 뽑은 타로 카드는 {card} !')
+
+    view = MeaningView(card_id, tarot_name, tarot_meaning)
+    await ctx.send(f'{now}에 {ctx.author.mention}님이 뽑은 타로 카드는 {card_name} !', view=view)
+
 
 @bot.command()
 async def 타로의미(ctx, card_name: str = None):
     if card_name is None:
-        await ctx.send(
-            "이렇게 입력하면 돼요:\n"
-            "`!타로의미 m01`, `!타로의미 pa`, "
-            "`!타로의미 w02`, `!타로의미 sn`"
-        )
+        await ctx.send("이렇게 입력하면 돼요:",
+                       "`!타로의미 m01`, `!타로의미 w02`, `!타로의미 ca`, `!타로의미 sk`, `!타로의미 pn`")
         return
 
     card_id = card_name.strip().lower()
-    card = tarot.get(card_id)
+    card = tarot_name.get(card_id)
 
     if card is None:
         await ctx.send(f"앗! '{card_name}'에 해당하는 카드가 없나 봐요.")
         return
     
-    meaning = tarotmeaning.get(card_id)
+    meaning = tarot_meaning.get(card_id)
 
     if meaning is None:
-        await ctx.send(f"앗! 아직은 '{card}' 카드의 해석이 없나 봐요.")
+        await ctx.send(f"앗! 아직은 '{card}' 카드의 뜻이 없나 봐요.")
     else:
-        await ctx.send(f"{card_id} {card} 카드의 해석은: \n{meaning}")
+        await ctx.send(f"{card_id} {card} 카드의 의미는: \n{meaning}")
 
 
 @bot.command()
 async def 타로뽑기3(ctx):
-    card1 = random.choice(list(tarot.values()))
-    card2 = random.choice(list(tarot.values()))
-    card3 = random.choice(list(tarot.values()))
+    card1 = random.choice(list(tarot_name.values()))
+    card2 = random.choice(list(tarot_name.values()))
+    card3 = random.choice(list(tarot_name.values()))
     now = datetime.now(KST).strftime("%m/%d %H:%M:%S")
     await asyncio.sleep(3)
-    await ctx.send(f'{now}에 당신이 뽑은 타로 카드는 {card1}, {card2}, {card3} !')
+    await ctx.send(f'{now}에 {ctx.author.mention}님이 뽑은 타로 카드는 {card1}, {card2}, {card3} !')
+
 
 @bot.command()
 async def 양자택일(ctx):
-    card1 = random.choice(list(tarot.values()))
-    card2 = random.choice(list(tarot.values()))
+    card1 = random.choice(list(tarot_name.values()))
+    card2 = random.choice(list(tarot_name.values()))
     now = datetime.now(KST).strftime("%m/%d %H:%M:%S")
     await asyncio.sleep(3)
-    await ctx.send(f'{now}에 당신이 뽑은 타로 카드는 {card1} 그리고 {card2} !')
+    await ctx.send(f'{now}에 {ctx.author.mention}님이 뽑은 타로 카드는 {card1} 그리고 {card2} !')
 
 
 @bot.command()
 async def 심볼론뽑기(ctx):
-    choice_symbolon = random.choice(list(symbolon.values()))
+    card_id = random.choice(list(symbolon_name))
+    card_name = symbolon_name[card_id]
+
     now = datetime.now(KST).strftime("%m/%d %H:%M:%S")
     await asyncio.sleep(3)
-    await ctx.send(f'{now}에 당신이 뽑은 심볼론 카드는 {choice_symbolon} !')
+
+    view = MeaningView(card_id, symbolon_name, symbolon_meaning)
+
+    await ctx.send(f'{now}에 {ctx.author.mention}님이 뽑은 심볼론 카드는 {card_name} !', view=view)
+
 
 @bot.command()
-async def 심볼론의미(ctx, *, card_name: str = None):
+async def 심볼론의미(ctx, card_name: str = None):
     if card_name is None:
         await ctx.send(
             "이렇게 입력하면 돼요:\n"
@@ -99,18 +137,18 @@ async def 심볼론의미(ctx, *, card_name: str = None):
         return
 
     card_id = card_name.strip().lower()
-    card = symbolon.get(card_id)
+    card = symbolon_name.get(card_id)
 
     if card is None:
         await ctx.send(f"앗! '{card_name}'에 해당하는 카드가 없나 봐요.")
         return
     
-    meaning = symbolonmeaning.get(card_id)
+    meaning = symbolon_meaning.get(card_id)
 
     if meaning is None:
-        await ctx.send(f"앗! 아직은 '{card}' 카드의 해석이 없나 봐요.")
+        await ctx.send(f"앗! 아직은 '{card}' 카드의 뜻이 없나 봐요.")
     else:
-        await ctx.send(f"{card_id} {card} 카드의 해석은: \n{meaning}")
+        await ctx.send(f"{card_id} {card} 카드의 의미는: \n{meaning}")
 
 
 load_dotenv()
